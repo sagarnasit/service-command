@@ -81,7 +81,15 @@ function init_global_container( $service, $container = '' ) {
 		if ( IS_DARWIN && GLOBAL_DB === $service && ! $fs->exists( $db_conf_file ) ) {
 			$fs->copy( SERVICE_TEMPLATE_ROOT . '/my.cnf.mustache', $db_conf_file );
 		}
+
 		\EE_DOCKER::boot_container( $container, 'docker-compose up -d ' . $service );
+
+		$credential_file = EE_SERVICE_DIR . '/mariadb/conf/conf.d/my.cnf';
+		if ( GLOBAL_DB === $service && ! $fs->exists( $credential_file ) ) {
+			$my_cnf = EE\Utils\mustache_render( SERVICE_TEMPLATE_ROOT . '/conf.d/my.cnf.mustache', [ 'db_password' => Option::get( GLOBAL_DB ) ] );
+			file_put_contents( $credential_file, $my_cnf );
+		}
+
 		return true;
 	} else {
 		return false;
@@ -183,6 +191,13 @@ function generate_global_docker_compose_yml( Filesystem $fs ) {
 			'name'            => 'db_logs',
 			'path_to_symlink' => EE_SERVICE_DIR . '/mariadb/logs',
 			'container_path'  => '/var/log/mysql',
+		],
+		[
+			'name'            => 'db_my_conf',
+			'path_to_symlink' => EE_SERVICE_DIR . '/mariadb/conf/conf.d/my.cnf',
+			'container_path'  => '/etc/mysql/conf.d/my.cnf',
+			'skip_linux'      => true,
+			'skip_volume'     => true,
 		],
 	];
 	$volumes_redis = [
